@@ -3,9 +3,13 @@ from sentence_transformers import SentenceTransformer
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_distances
 import numpy as np
+import asyncio # Added for asynchronous operations
 
-def mock_llm_identify_criteria_from_cots(cot_responses):
-    print("[Mock LLM] Identifying criteria from CoT responses...")
+# --- Async Mock LLM Interaction Functions (Conceptual Placeholders for Real API Calls) ---
+async def async_mock_llm_identify_criteria_from_cots(cot_responses):
+    print("[Async Mock LLM] Identifying criteria from CoT responses...")
+    # Simulate network latency for an API call
+    await asyncio.sleep(0.1) 
     criteria_list = [
         {"criterion_name": "Analytical Perspective", "pattern_A_text": "Top-down: Approach starts with the overall structure then breaks it down.", "pattern_B_text": "Bottom-up: Approach starts with details and builds up to a conclusion."},
         {"criterion_name": "Idea Development", "pattern_A_text": "Multiple Paths: Explores several lines of thought or solutions simultaneously.", "pattern_B_text": "Single Path: Focuses on developing one idea or solution path deeply."},
@@ -20,14 +24,17 @@ def mock_llm_identify_criteria_from_cots(cot_responses):
     for i in range(num_cots):
         for crit in criteria_list:
             all_criteria.append({**crit, "source_cot_id": i})
-    print(f"[Mock LLM] Extracted {len(all_criteria)} raw criteria instances.")
+    # After receiving the response from LLM API, parse it into the structured format.
+    print(f"[Async Mock LLM] Extracted {len(all_criteria)} raw criteria instances.")
     return all_criteria
 
-def mock_llm_generate_rubric_for_criterion(medoid_criterion_dict):
+async def async_mock_llm_generate_rubric_for_criterion(medoid_criterion_dict):
     name = medoid_criterion_dict['criterion_name']
     pattern_a = medoid_criterion_dict['pattern_A_text']
     pattern_b = medoid_criterion_dict['pattern_B_text']
-    print(f"[Mock LLM] Generating rubric for medoid criterion: {name}")
+    print(f"[Async Mock LLM] Generating rubric for medoid criterion: {name}")
+    await asyncio.sleep(0.1) # Simulate API call
+    # Real LLM API call here with medoid_criterion_dict and prompt (see Fig 20 of paper)
     rubric_text = f"**Rubric for {name}**\n\n"
     rubric_text += f"**Pattern A: {pattern_a.split(':')[0].strip()}**\n"
     rubric_text += f"  - Definition: {pattern_a}\n"
@@ -40,9 +47,11 @@ def mock_llm_generate_rubric_for_criterion(medoid_criterion_dict):
     rubric_text += "Guidance for classification: [LLM-generated guidance on how to distinguish A vs B]"
     return rubric_text
 
-def mock_llm_classify_response_with_rubric(cot_response_text, rubric_text):
-    print(f"[Mock LLM] Classifying response against rubric...")
-    classified_pattern = np.random.choice(['A', 'B'])
+async def async_mock_llm_classify_response_with_rubric(cot_response_text, rubric_text):
+    print(f"[Async Mock LLM] Classifying response against rubric...")
+    await asyncio.sleep(0.1) # Simulate API call
+    # Real LLM API call here with cot_response_text, rubric_text and prompt (see Fig 21 of paper)
+    classified_pattern = np.random.choice(['A', 'B']) # Simulate LLM classification
     report = f"**Pattern Analysis Report for Response:**\n"
     report += f"Response snippet: \"{cot_response_text[:100]}...\"\n\n"
     report += f"**Initial Observations:** [LLM-generated summary of reasoning approach in response]\n\n"
@@ -72,17 +81,18 @@ class CoTEncyclopediaFramework:
         self.medoid_criteria = {}
         self.rubrics = {}
 
-    def step1_identify_criteria(self, cot_responses):
-        print("\n--- Step 1: Classification Criteria Identification ---")
+    async def step1_identify_criteria(self, cot_responses):
+        print("\n--- Step 1: Classification Criteria Identification (Async) ---")
         if not cot_responses:
             print("No CoT responses provided. Using default sample criteria.")
-        self.raw_criteria_list = mock_llm_identify_criteria_from_cots(cot_responses)
+        # This step now calls an async (mocked) LLM function
+        self.raw_criteria_list = await async_mock_llm_identify_criteria_from_cots(cot_responses)
         print(f"Identified {len(self.raw_criteria_list)} raw criteria entries.")
         if not self.raw_criteria_list:
             print("No criteria were identified.")
         return self.raw_criteria_list
 
-    def step2_embed_criteria(self):
+    def step2_embed_criteria(self): # This remains synchronous
         print("\n--- Step 2: Classification Criteria Embedding ---")
         if not self.raw_criteria_list:
             print("No criteria to embed. Run Step 1 first.")
@@ -98,14 +108,14 @@ class CoTEncyclopediaFramework:
         print(f"Embedded {len(self.raw_criteria_list)} criteria into matrix of shape {self.criteria_embeddings_matrix.shape}")
         return self.criteria_embeddings_matrix
 
-    def _find_medoid_index(self, cluster_points_indices, embeddings_matrix):
+    def _find_medoid_index(self, cluster_points_indices, embeddings_matrix): # Synchronous helper
         cluster_embeddings = embeddings_matrix[cluster_points_indices]
         dist_matrix = cosine_distances(cluster_embeddings)
         sum_of_distances = np.sum(dist_matrix, axis=1)
         medoid_local_idx = np.argmin(sum_of_distances)
         return cluster_points_indices[medoid_local_idx]
 
-    def step3_compress_criteria_via_clustering(self, n_clusters=3):
+    def step3_compress_criteria_via_clustering(self, n_clusters=3): # This remains synchronous
         print("\n--- Step 3: Criteria Compression via Hierarchical Clustering ---")
         if self.criteria_embeddings_matrix is None or self.criteria_embeddings_matrix.shape[0] == 0:
             print("No embeddings to cluster. Run Step 2 first.")
@@ -133,31 +143,39 @@ class CoTEncyclopediaFramework:
             print(f"  Cluster {i}: {len(cluster_indices)} criteria. Medoid: '{self.medoid_criteria[i]['criterion_name']}'")
         return self.medoid_criteria
 
-    def step4_generate_rubrics(self):
-        print("\n--- Step 4: Rubric Generation ---")
+    async def step4_generate_rubrics(self):
+        print("\n--- Step 4: Rubric Generation (Async) ---")
         if not self.medoid_criteria:
             print("No medoid criteria found. Run Step 3 first.")
             return None
         self.rubrics = {}
+        # Process rubric generation for each medoid concurrently
+        tasks = []
         for cluster_id, medoid_crit_dict in self.medoid_criteria.items():
-            rubric_text = mock_llm_generate_rubric_for_criterion(medoid_crit_dict)
-            self.rubrics[cluster_id] = rubric_text
+            tasks.append(async_mock_llm_generate_rubric_for_criterion(medoid_crit_dict))
+        
+        generated_rubric_texts = await asyncio.gather(*tasks)
+        
+        for i, cluster_id in enumerate(self.medoid_criteria.keys()):
+            self.rubrics[cluster_id] = generated_rubric_texts[i]
+            
         print(f"Generated {len(self.rubrics)} rubrics.")
         return self.rubrics
 
-    def step5_analyze_response_with_rubrics(self, cot_response_to_analyze, cluster_id_for_rubric):
-        print("\n--- Step 5: Pattern Analysis Report Generation ---")
+    async def step5_analyze_response_with_rubrics(self, cot_response_to_analyze, cluster_id_for_rubric):
+        print("\n--- Step 5: Pattern Analysis Report Generation (Async) ---")
         if cluster_id_for_rubric not in self.rubrics:
             print(f"No rubric found for cluster_id {cluster_id_for_rubric}. Run Step 4 first.")
             return None, None
         rubric = self.rubrics[cluster_id_for_rubric]
         medoid_name = self.medoid_criteria[cluster_id_for_rubric]['criterion_name']
         print(f"Analyzing response using rubric for '{medoid_name}' (Cluster {cluster_id_for_rubric}).")
-        classified_pattern, report_text = mock_llm_classify_response_with_rubric(cot_response_to_analyze, rubric)
+        # This step now calls an async (mocked) LLM function
+        classified_pattern, report_text = await async_mock_llm_classify_response_with_rubric(cot_response_to_analyze, rubric)
         print(f"Response classified as Pattern {classified_pattern} for '{medoid_name}'.")
         return classified_pattern, report_text
 
-def main():
+async def main():
     sample_cot_responses = [
         "To solve this math problem, I first broke it into three parts. Then I addressed each part sequentially, checking my work at each stage. Finally, I combined the results.",
         "Considering the user's question about historical accuracy, I compared several sources. One source suggested X, another Y. I synthesized these by looking for common themes and noting discrepancies.",
@@ -168,14 +186,16 @@ def main():
         print("Exiting due to embedding model loading failure.")
         return
 
-    framework.step1_identify_criteria(sample_cot_responses)
+    await framework.step1_identify_criteria(sample_cot_responses)
+    # Step 2 and 3 are synchronous CPU-bound tasks
     framework.step2_embed_criteria()
     num_final_clusters = 3
     medoids = framework.step3_compress_criteria_via_clustering(n_clusters=num_final_clusters)
     if not medoids:
         print("Clustering failed or produced no medoids. Exiting.")
         return
-    all_rubrics = framework.step4_generate_rubrics()
+    
+    all_rubrics = await framework.step4_generate_rubrics()
     if not all_rubrics:
         print("Rubric generation failed. Exiting.")
         return
@@ -184,22 +204,26 @@ def main():
     new_cot_response = "The model directly answered the question without showing intermediate steps. It seemed to rely on its internal knowledge base rather than explicit calculation."
     print(f"\nAnalyzing a new CoT response: \"{new_cot_response[:50]}...\"")
     if framework.rubrics:
-        first_cluster_id = list(framework.rubrics.keys())[0]
-        classified_as, report = framework.step5_analyze_response_with_rubrics(
-            new_cot_response,
-            first_cluster_id
-        )
-        if report:
-            print(f"\nFull Analysis Report for Cluster {first_cluster_id} ('{framework.medoid_criteria[first_cluster_id]['criterion_name']}'):")
-            print(report)
+        # Use a known cluster_id if medoids were generated
+        if 0 in framework.medoid_criteria: # Check if cluster_id 0 exists
+            first_cluster_id = 0 # Or pick any valid cluster_id
+            classified_as, report = await framework.step5_analyze_response_with_rubrics(
+                new_cot_response,
+                first_cluster_id
+            )
+            if report:
+                print(f"\nFull Analysis Report for Cluster {first_cluster_id} ('{framework.medoid_criteria[first_cluster_id]['criterion_name']}'):")
+                print(report)
+        else:
+            print("No valid cluster ID (e.g., 0) found in medoid_criteria to analyze.")
     else:
         print("No rubrics available to analyze the new CoT response.")
 
     print("\nConceptual: Optimal Reasoning Pattern Control")
-    print("  - This would involve predicting optimal strategies and prompting an LLM.")
+    print("  - This would involve predicting optimal strategies and prompting an LLM (async).")
     print("  - E.g., If 'Top-down' (Pattern A of 'Analytical Perspective') is optimal for a question:")
     print("    LLM_Prompt: \"Solve [Question] using a Top-down approach: First, conceptualize the overall structure...\"")
     print("\n--- Framework Execution Complete ---")
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
